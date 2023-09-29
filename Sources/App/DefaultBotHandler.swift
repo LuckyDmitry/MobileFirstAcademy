@@ -5,27 +5,41 @@ final class DefaultBotHandlers {
 
     static func addHandlers(app: Vapor.Application, connection: TGConnectionPrtcl) async {
         await defaultBaseHandler(app: app, connection: connection)
-        await messageHandler(app: app, connection: connection)
         await commandPingHandler(app: app, connection: connection)
-        await commandShowButtonsHandler(app: app, connection: connection)
-        await buttonsActionHandler(app: app, connection: connection)
     }
     
     /// Handler for all updates
     private static func defaultBaseHandler(app: Vapor.Application, connection: TGConnectionPrtcl) async {
         await connection.dispatcher.add(TGBaseHandler({ update, bot in
-            guard let message = update.message else { return }
-            let params: TGSendMessageParams = .init(chatId: .chat(message.chat.id), text: "TGBaseHandler")
+            guard let message = update.message, let text = message.text else { return }
+            // let params: TGSendMessageParams = .init(chatId: .chat(update.message!.chat.id), text: "Success")
+            // try bot.sendMessage(params: params)
+            let chatGPTurl = "https://api.openai.com/v1/chat/completions"
+            let API_KEY = "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"
+            let request: [String: Decodable] = [
+                "model" : "gpt-3.5-turbo",
+                "messages":  [
+                    "content": text,
+                    "role": "user"
+                    
+                ]
+              ]
+            let response = try await app.client.post(.init(string: chatGPTurl)) { buildRequest in
+                buildRequest.headers.bearerAuthorization = .init(token: API_KEY)
+                let body = ChatGPTRequestBody(model: "gpt-3.5-turbo", messages: [
+                    .init(content: text, role: "user")
+                ])
+                
+                try buildRequest.content.encode(body)
+            }
+            
+            let result = try response.content.decode(Output.self)
+            let resultText = result.choices.first?.message.content ?? "Empty"
+            
+            let params: TGSendMessageParams = .init(chatId: .chat(message.chat.id), text: resultText)
+            
             try await connection.bot.sendMessage(params: params)
         }))
-    }
-
-    /// Handler for Messages
-    private static func messageHandler(app: Vapor.Application, connection: TGConnectionPrtcl) async {
-        await connection.dispatcher.add(TGMessageHandler(filters: (.all && !.command.names(["/ping", "/show_buttons"]))) { update, bot in
-            let params: TGSendMessageParams = .init(chatId: .chat(update.message!.chat.id), text: "Success")
-            try await connection.bot.sendMessage(params: params)
-        })
     }
 
     /// Handler for Commands
@@ -34,40 +48,24 @@ final class DefaultBotHandlers {
             try await update.message?.reply(text: "pong", bot: bot)
         })
     }
+}
 
-    /// Show buttons
-    private static func commandShowButtonsHandler(app: Vapor.Application, connection: TGConnectionPrtcl) async {
-        await connection.dispatcher.add(TGCommandHandler(commands: ["/show_buttons"]) { update, bot in
-            guard let userId = update.message?.from?.id else { fatalError("user id not found") }
-            let buttons: [[TGInlineKeyboardButton]] = [
-                [.init(text: "Button 1", callbackData: "press 1"), .init(text: "Button 2", callbackData: "press 2")]
-            ]
-            let keyboard: TGInlineKeyboardMarkup = .init(inlineKeyboard: buttons)
-            let params: TGSendMessageParams = .init(chatId: .chat(userId),
-                                                    text: "Keyboard active",
-                                                    replyMarkup: .inlineKeyboardMarkup(keyboard))
-            try await connection.bot.sendMessage(params: params)
-        })
+struct ChatGPTRequestBody: Content {
+    struct Message: Content {
+        let content: String
+        let role: String
     }
+    let model: String
+    let messages: [Message]
+}
 
-    /// Handler for buttons callbacks
-    private static func buttonsActionHandler(app: Vapor.Application, connection: TGConnectionPrtcl) async {
-        await connection.dispatcher.add(TGCallbackQueryHandler(pattern: "press 1") { update, bot in
-            let params: TGAnswerCallbackQueryParams = .init(callbackQueryId: update.callbackQuery?.id ?? "0",
-                                                            text: update.callbackQuery?.data  ?? "data not exist",
-                                                            showAlert: nil,
-                                                            url: nil,
-                                                            cacheTime: nil)
-            try await bot.answerCallbackQuery(params: params)
-        })
-        
-        await connection.dispatcher.add(TGCallbackQueryHandler(pattern: "press 2") { update, bot in
-            let params: TGAnswerCallbackQueryParams = .init(callbackQueryId: update.callbackQuery?.id ?? "0",
-                                                            text: update.callbackQuery?.data  ?? "data not exist",
-                                                            showAlert: nil,
-                                                            url: nil,
-                                                            cacheTime: nil)
-            try await bot.answerCallbackQuery(params: params)
-        })
+struct Output: Decodable {
+  struct Choice: Decodable {
+    struct Message: Decodable {
+      var content: String
     }
+    var message: Message
+  }
+  
+  var choices: [Choice] = []
 }
