@@ -1,8 +1,6 @@
 import Vapor
 import TelegramVaporBot
 
-var messages: [ChatGPTRequestBody.Message] = []
-
 final class DefaultBotHandlers {
 
     static func addHandlers(app: Vapor.Application, connection: TGConnectionPrtcl) async {
@@ -17,20 +15,16 @@ final class DefaultBotHandlers {
             // let params: TGSendMessageParams = .init(chatId: .chat(update.message!.chat.id), text: "Success")
             // try bot.sendMessage(params: params)
             let chatGPTurl = "https://api.openai.com/v1/chat/completions"
-            let API_KEY = "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"
-            if messages.isEmpty {
-                messages.append(.init(
-                    content: "You are a helper in mobile school, you have to answer only on questions related to programming and mobile stuff. If user asks you something else, you have to say sorry, i can respond only on programming questions, you need to contact Dmitrii Trifonov to resolve it. Be polite, provide code examples and explain everything simple",
-                    role: "user"
-                ))
-            }
-            
-            messages.append(.init(content: text, role: "user"))
+            let API_KEY = "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"
 
             do {
                 let response = try await app.client.post(.init(string: chatGPTurl)) { buildRequest in
                     buildRequest.headers.bearerAuthorization = .init(token: API_KEY)
-                    let body = ChatGPTRequestBody(model: "gpt-3.5-turbo", messages: messages)
+                    let body = ChatGPTRequestBody(model: "gpt-3.5-turbo", messages: [
+                        .init(content: "You are a helper in mobile school, you help students who learn programming. You are programmed to respond only questions related programming, engineering and development. you can respond to technologies, software arhitecture, programming languages, operating systems. Be polite, provide code examples and explain everything simple", role: "user"),
+                        .init(content: text, role: "user")
+                    
+                    ])
                     
                     try buildRequest.content.encode(body)
                 }
@@ -50,7 +44,6 @@ final class DefaultBotHandlers {
     /// Handler for Commands
     private static func commandPingHandler(app: Vapor.Application, connection: TGConnectionPrtcl) async {
         await connection.dispatcher.add(TGCommandHandler(commands: ["/clean"]) { update, bot in
-            messages.removeAll()
             try await update.message?.reply(text: "Почистили!", bot: bot)
         })
     }
