@@ -12,14 +12,14 @@ final class DefaultBotHandlers {
     private static func defaultBaseHandler(app: Vapor.Application, connection: TGConnectionPrtcl) async {
         await connection.dispatcher.add(TGBaseHandler({ update, bot in
             guard let message = update.message, let text = message.text else { return }
+            guard let apiKey = Environment.get("OPENAI_KEY") else { return }
             // let params: TGSendMessageParams = .init(chatId: .chat(update.message!.chat.id), text: "Success")
             // try bot.sendMessage(params: params)
             let chatGPTurl = "https://api.openai.com/v1/chat/completions"
-            let API_KEY = "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"
 
             do {
                 let response = try await app.client.post(.init(string: chatGPTurl)) { buildRequest in
-                    buildRequest.headers.bearerAuthorization = .init(token: API_KEY)
+                    buildRequest.headers.bearerAuthorization = .init(token: apiKey)
                     let body = ChatGPTRequestBody(model: "gpt-3.5-turbo", messages: [
                         .init(content: "You are a helper in mobile school, you help students who learn programming. You are programmed to respond only questions related programming, engineering and development. you can respond to technologies, software arhitecture, programming languages, operating systems. Be polite, provide code examples and explain everything simple", role: "user"),
                         .init(content: text, role: "user")
