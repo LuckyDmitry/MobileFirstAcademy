@@ -21,7 +21,7 @@ final class DefaultBotHandlers {
                 let response = try await app.client.post(.init(string: chatGPTurl)) { buildRequest in
                     buildRequest.headers.bearerAuthorization = .init(token: apiKey)
                     let body = ChatGPTRequestBody(model: "gpt-3.5-turbo", messages: [
-                        .init(content: "You are a helper in mobile school, you help students who learn programming. You are programmed to respond only questions related programming, engineering and development. you can respond to technologies, software arhitecture, programming languages, operating systems. Be polite, provide code examples and explain everything simple", role: "user"),
+                        .init(content: "You are a helper in mobile school, you help students who learn programming. You are programmed to respond only questions related programming, engineering and development. you can respond to technologies, software arhitecture, programming languages, operating systems. Be polite, provide code examples in kotlin if the language is not specified and explain everything simple", role: "user"),
                         .init(content: text, role: "user")
                     
                     ])
